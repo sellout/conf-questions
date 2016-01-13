@@ -5,6 +5,7 @@ module Main where
 
 import Data.Text
 import Data.Text.Lazy (toStrict)
+import System.Environment
 import Text.Blaze.Html.Renderer.Text
 import Text.Hamlet
 import Web.Spock.Safe
@@ -17,8 +18,6 @@ data Question = Question ViewerQuestion
               | RephrasedQuestion { summary :: String, duplicates :: [ViewerQuestion] }
 data Talk = Talk { slug :: String, title :: String, questions :: [Question] }
 data Speaker = Speaker { username :: String, name :: String, talks :: [Talk] }
-
-port = 8080
 
 homePage :: Html
 homePage = [shamlet|
@@ -71,15 +70,18 @@ addAQuestion speaker talk question submitter = [shamlet|
 format = html . toStrict . renderHtml
 
 main :: IO ()
-main = runSpock port (spockT id (do
-  get   root          (format homePage)
-  get   var           (format . speakerPage)
-  post  var           (\speaker -> do
-    title <- param "title"
-    slug  <- param "slug"
-    format (addATalk speaker title slug))
-  get  (var <//> var) (\speaker talk -> format (questionPage speaker talk))
-  post (var <//> var) (\speaker talk -> do
-    question  <- param "question"
-    submitter <- param "submitter"
-    format (addAQuestion speaker talk question submitter))))
+main = do
+  env <- getEnvironment
+  let port = maybe 8080 read $ lookup "PORT" env
+  runSpock port (spockT id (do
+     get   root          (format homePage)
+     get   var           (format . speakerPage)
+     post  var           (\speaker -> do
+       title <- param "title"
+       slug  <- param "slug"
+       format (addATalk speaker title slug))
+     get  (var <//> var) (\speaker talk -> format (questionPage speaker talk))
+     post (var <//> var) (\speaker talk -> do
+       question  <- param "question"
+       submitter <- param "submitter"
+       format (addAQuestion speaker talk question submitter))))
